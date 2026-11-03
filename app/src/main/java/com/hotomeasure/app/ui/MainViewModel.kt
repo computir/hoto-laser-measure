@@ -1,8 +1,12 @@
 package com.hotomeasure.app.ui
 
 import android.app.Application
+import android.content.Context
 import android.content.IntentSender
 import com.hotomeasure.app.autostart.AutoStart
+import com.hotomeasure.app.update.Release
+import com.hotomeasure.app.update.UpdateState
+import com.hotomeasure.app.update.Updater
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.hotomeasure.app.MeasureApp
@@ -202,6 +206,31 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     // Declared after the auto-start state above, which it reads.
     init {
         viewModelScope.launch { paired.collect { refreshAutoStart() } }
+    }
+
+    // --- Updates from GitHub releases ---
+
+    val update = Updater.state
+
+    fun checkForUpdates() = viewModelScope.launch { Updater.check(ctx) }
+
+    /** False when Android first needs "Install unknown apps" allowed for this app. */
+    fun canInstall() = ctx.packageManager.canRequestPackageInstalls()
+
+    fun installUpdate(release: Release) = viewModelScope.launch { Updater.downloadAndInstall(ctx, release) }
+
+    init {
+        // Quietly look for a new release about once a day, if the person hasn't turned that off.
+        viewModelScope.launch {
+            if (!store.settings.first().autoUpdateCheck) return@launch
+            val prefs = ctx.getSharedPreferences("update", Context.MODE_PRIVATE)
+            val now = System.currentTimeMillis()
+            if (now - prefs.getLong("last_check", 0) < 24 * 3600_000L) return@launch
+            prefs.edit().putLong("last_check", now).apply()
+            val found = Updater.check(ctx)
+            if (found != null) _message.value = "Laser Measure ${found.version} is available. Update it from the Device tab."
+            else if (Updater.state.value is UpdateState.Failed) Updater.set(UpdateState.Idle) // stay quiet offline
+        }
     }
 
     fun consumeMessage() { _message.value = null }

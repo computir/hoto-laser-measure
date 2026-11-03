@@ -2,6 +2,7 @@ package com.hotomeasure.app.data
 
 import android.content.Context
 import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
@@ -31,6 +32,7 @@ data class Settings(
     val unit: DisplayUnit = DisplayUnit.FT_IN,
     val decimals: Int = 2,
     val inchFraction: Int = 16, // round ft-in / in to 1/16"
+    val autoUpdateCheck: Boolean = true, // look for a new GitHub release about once a day
 )
 
 @Serializable
@@ -50,13 +52,14 @@ class Store(private val context: Context) {
         if (a == null || t == null) null else PairedMeter(a, p[NAME] ?: "HOTO Laser Measure", t)
     }.distinctUntilChanged()
 
-    val settings: Flow<Settings> = context.dataStore.data.map { p ->
-        Settings(
-            unit = p[UNIT]?.let { runCatching { DisplayUnit.valueOf(it) }.getOrNull() } ?: DisplayUnit.FT_IN,
-            decimals = p[DECIMALS] ?: 2,
-            inchFraction = p[FRACTION] ?: 16,
-        )
-    }.distinctUntilChanged()
+    val settings: Flow<Settings> = context.dataStore.data.map { readSettings(it) }.distinctUntilChanged()
+
+    private fun readSettings(p: Preferences) = Settings(
+        unit = p[UNIT]?.let { runCatching { DisplayUnit.valueOf(it) }.getOrNull() } ?: DisplayUnit.FT_IN,
+        decimals = p[DECIMALS] ?: 2,
+        inchFraction = p[FRACTION] ?: 16,
+        autoUpdateCheck = p[AUTO_UPDATE] ?: true,
+    )
 
     val history: Flow<List<Measurement>> = context.dataStore.data.map { decode(it) }.distinctUntilChanged()
 
@@ -69,13 +72,9 @@ class Store(private val context: Context) {
     }
 
     suspend fun updateSettings(f: (Settings) -> Settings) = context.dataStore.edit { p ->
-        val cur = Settings(
-            unit = p[UNIT]?.let { runCatching { DisplayUnit.valueOf(it) }.getOrNull() } ?: DisplayUnit.FT_IN,
-            decimals = p[DECIMALS] ?: 2,
-            inchFraction = p[FRACTION] ?: 16,
-        )
-        val n = f(cur)
+        val n = f(readSettings(p))
         p[UNIT] = n.unit.name; p[DECIMALS] = n.decimals; p[FRACTION] = n.inchFraction
+        p[AUTO_UPDATE] = n.autoUpdateCheck
     }
 
     suspend fun editHistory(f: (List<Measurement>) -> List<Measurement>) = context.dataStore.edit { p ->
@@ -94,5 +93,6 @@ class Store(private val context: Context) {
         val DECIMALS = intPreferencesKey("decimals")
         val FRACTION = intPreferencesKey("fraction")
         val HISTORY = stringPreferencesKey("history")
+        val AUTO_UPDATE = booleanPreferencesKey("auto_update_check")
     }
 }

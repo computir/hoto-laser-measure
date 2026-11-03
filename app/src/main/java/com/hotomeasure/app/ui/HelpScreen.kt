@@ -90,6 +90,17 @@ private val sections = listOf(
         ),
     ),
     Section(
+        "Updates",
+        listOf(
+            "The Device tab shows your version. Tap Check for updates to look for a newer release on GitHub.",
+            "Tap Download and install, then confirm Android's prompt. The first time, Android asks you to allow Laser Measure to install apps.",
+            "Your history, settings and pairing are kept. The app reopens by itself when the update finishes.",
+            "With Advanced Protection on (or a work policy), Android doesn't let any app install updates. The app still tells you when a new version is out. Install it from a computer: plug the phone in and run scripts\\update-phone.ps1 from the project.",
+            "Before anything is installed, each download is checked against GitHub's published checksum and has to be signed by the same key as this app.",
+            "By default the app checks about once a day. You can turn that off on the Device tab.",
+        ),
+    ),
+    Section(
         "Troubleshooting",
         listOf(
             "\"Pair again\": something else, such as Mi Home, paired with the measure. Search and pair again; your history is kept.",
@@ -125,7 +136,7 @@ fun HelpScreen(modifier: Modifier) {
                 Text("About", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                 Text("Laser Measure $version", style = MaterialTheme.typography.bodyMedium)
                 Text(
-                    "Free and open source under the Apache License 2.0. Works offline: no account, no internet, no tracking.",
+                    "Free and open source under the Apache License 2.0. No account and no tracking. The only internet use is checking GitHub for updates; measuring works fully offline.",
                     style = MaterialTheme.typography.bodyMedium,
                 )
                 Text(

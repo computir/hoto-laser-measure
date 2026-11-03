@@ -2,6 +2,14 @@ package com.hotomeasure.app.ui
 
 import android.app.Activity
 import android.bluetooth.BluetoothAdapter
+import android.net.Uri
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.ui.platform.LocalContext
+import com.hotomeasure.app.update.Release
+import com.hotomeasure.app.update.UpdateState
+import com.hotomeasure.app.update.Updater
 import androidx.activity.result.IntentSenderRequest
 import androidx.compose.material3.Switch
 import android.content.Intent
@@ -189,5 +197,79 @@ fun DeviceScreen(vm: MainViewModel, modifier: Modifier) {
             "The measure's own screen switches between metres and feet to match.",
             style = MaterialTheme.typography.bodySmall,
         )
+
+        HorizontalDivider()
+        UpdatesCard(vm, s.autoUpdateCheck)
+    }
+}
+
+@Composable
+private fun UpdatesCard(vm: MainViewModel, autoCheck: Boolean) {
+    val ctx = LocalContext.current
+    val update by vm.update.collectAsStateWithLifecycle()
+    val version = remember { Updater.installedVersion(ctx) }
+    val installsBlocked = remember { Updater.installsBlocked(ctx) }
+    var pending by remember { mutableStateOf<Release?>(null) }
+    // Comes back from Android's "Install unknown apps" screen; carry on if it was allowed.
+    val allowLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) {
+        pending?.let { r -> if (vm.canInstall()) vm.installUpdate(r) }
+        pending = null
+    }
+    fun install(r: Release) {
+        if (vm.canInstall()) vm.installUpdate(r)
+        else {
+            pending = r
+            allowLauncher.launch(Intent(android.provider.Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:${ctx.packageName}")))
+        }
+    }
+
+    Text("Updates", style = MaterialTheme.typography.titleMedium)
+    Card(Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("Installed: version $version", style = MaterialTheme.typography.bodyMedium)
+            when (val u = update) {
+                is UpdateState.Idle -> Button(onClick = { vm.checkForUpdates() }) { Text("Check for updates") }
+                is UpdateState.Checking -> Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    CircularProgressIndicator(Modifier.size(24.dp)); Text("Checking GitHub…")
+                }
+                is UpdateState.UpToDate -> {
+                    Text("You have the latest version.", fontWeight = FontWeight.SemiBold)
+                    OutlinedButton(onClick = { vm.checkForUpdates() }) { Text("Check again") }
+                }
+                is UpdateState.Available -> {
+                    Text("Version ${u.release.version} is available", fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary)
+                    val notes = u.release.notes.lines().filter { it.isNotBlank() }.joinToString("\n").take(600)
+                    if (notes.isNotEmpty()) Text(notes, style = MaterialTheme.typography.bodySmall)
+                    if (installsBlocked) {
+                        Text(
+                            "This phone doesn't let apps install updates (Advanced Protection or a device policy), so update it from a computer: " +
+                                "plug the phone in with USB debugging on and run scripts\\update-phone.ps1 from the project. It downloads this release, " +
+                                "verifies it and installs it over USB, keeping your history and pairing.",
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
+                    } else {
+                        Button(onClick = { install(u.release) }) { Text("Download and install") }
+                    }
+                    TextButton(onClick = { ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(u.release.pageUrl))) }) { Text("View on GitHub") }
+                }
+                is UpdateState.Downloading -> {
+                    Text("Downloading version ${u.release.version}…")
+                    LinearProgressIndicator(progress = { u.progress }, modifier = Modifier.fillMaxWidth())
+                }
+                is UpdateState.Installing -> Text("Checking the download and handing it to Android. Confirm the update when Android asks.")
+                is UpdateState.Failed -> {
+                    Text(u.message, color = MaterialTheme.colorScheme.error)
+                    OutlinedButton(onClick = { vm.checkForUpdates() }) { Text("Try again") }
+                }
+            }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("Check automatically (about once a day)", Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+                Switch(checked = autoCheck, onCheckedChange = { on -> vm.updateSettings { it.copy(autoUpdateCheck = on) } })
+            }
+            Text(
+                "Updates come from the project's GitHub releases. Each download is checked against GitHub's published checksum and must be signed by the same key as this app before Android is asked to install it.",
+                style = MaterialTheme.typography.bodySmall,
+            )
+        }
     }
 }

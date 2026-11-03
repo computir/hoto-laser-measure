@@ -1,6 +1,6 @@
 # Laser Measure: an open-source app for the HOTO Smart Laser Measure (QWCJY001)
 
-HOTO's QWCJY001 Bluetooth laser measure was built to work with the Mi Home app, and that support no longer works. This free Android app works with the measure directly. It needs no Xiaomi account, no internet connection, and doesn't track you.
+HOTO's QWCJY001 Bluetooth laser measure was built to work with the Mi Home app, and that support no longer works. This free Android app works with the measure directly. It needs no Xiaomi account and doesn't track you. Measuring works fully offline.
 
 ## Features
 
@@ -11,6 +11,7 @@ HOTO's QWCJY001 Bluetooth laser measure was built to work with the Mi Home app, 
 - **History.** Every distance is saved automatically. You can name, copy, delete or share measurements.
 - **Opens automatically.** Optionally, Android opens the app when you switch the measure on.
 - **Stays connected.** The screen stays on while the app is connected. If you lock the phone, the connection stays up for 1 minute, so readings taken during that minute are still saved.
+- **Updates itself.** On the Device tab, the app can check this repository's releases, then download, verify and install a new version.
 - **Help built in.** Tap **?** in the app for help.
 
 The app needs Android 12 or later with Bluetooth LE. It has been tested on a Pixel 8 Pro running Android 17.
@@ -20,6 +21,20 @@ The app needs Android 12 or later with Bluetooth LE. It has been tested on a Pix
 1. Download `LaserMeasure.apk` from the [latest release](../../releases/latest).
 2. Open the file on your phone. If Android asks, allow your browser or Files app to install unknown apps.
 3. If Play Protect warns that the app comes from an unknown developer, choose **Install anyway**. The app isn't on the Play Store.
+
+**Advanced Protection on?** Android then blocks every app, browser and file manager from installing APKs, so install from a computer instead. See the script below.
+
+## Updating
+
+**From the app:** open the **Device** tab, go to **Updates**, and tap **Check for updates**, then **Download and install**. By default the app also checks about once a day. Updates keep your history, settings and pairing.
+
+**From a computer** (needed with Advanced Protection or a work policy): turn on USB debugging on the phone, plug it in, then run this from a copy of the repository:
+
+```
+powershell -ExecutionPolicy Bypass -File scripts\update-phone.ps1
+```
+
+The script downloads the latest release and checks it against GitHub's SHA-256 checksum. It then confirms the APK is signed with the project's release key and installs it over USB. You need adb (Android platform-tools); the script finds it through `local.properties`, `ANDROID_HOME` or `PATH`, or you can pass `-Adb <path>`. The key check also uses `apksigner` from the Android SDK build-tools. If that isn't installed, the script skips the check, and Android still refuses an update signed with a different key.
 
 ## First use
 
@@ -44,7 +59,8 @@ The release build is unsigned unless you set the Gradle property `HOTO_KEYSTORE_
 
 ## Security
 
-- The app has no internet permission, so it can't send data anywhere. It doesn't ask for location access either.
+- The app only goes online to check for updates. It talks to GitHub over HTTPS (`api.github.com` and the release download host) and sends no data about you or your measurements. It doesn't ask for location access.
+- Before an update is installed, the app checks it against the SHA-256 checksum GitHub publishes for it. The update must also be this same app, with a higher version, signed with the same release key. Android then asks you to confirm.
 - The pairing token is stored separately and is left out of Android backups and device transfers.
 - Session messages are checked for authenticity (AES-CCM), and replayed messages are rejected.
 - The measure's pairing has no PIN, which is a limitation of the device itself. Pair in private, and if the app unexpectedly says *Pair again*, someone else paired with the measure.
