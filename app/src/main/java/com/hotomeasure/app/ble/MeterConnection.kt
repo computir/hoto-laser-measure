@@ -8,6 +8,7 @@ import android.util.Log
 import com.hotomeasure.app.autostart.AutoStart
 import com.hotomeasure.app.data.PairedMeter
 import com.hotomeasure.app.data.Store
+import com.hotomeasure.app.data.Units
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -168,6 +169,7 @@ class MeterConnection(
                     // Show the reading first so it isn't lost if the acknowledgement has trouble.
                     if (msg is DeviceMessage.Report) onReport(msg)
                     msg.ack?.let { ack(s, it) }
+                    if (msg is DeviceMessage.Report) keepMeterOnAppUnits(msg, s)
                 }
                 Log.i(TAG, "Measure closed the connection")
             } catch (e: CancellationException) {
@@ -191,8 +193,10 @@ class MeterConnection(
     }
 
     /**
-     * A failed acknowledgement is not a reason to hang up: the worst case is that the measure
-     * repeats the report later. Retry once after a short pause, then carry on.
+     * Retries a failed acknowledgement once. If it fails again, reconnect: a GATT write that never
+     * completed can leave Android refusing every later write, and an unacknowledged report is
+     * re-sent by the measure about 50 s later, which would show up as a duplicate reading.
+     * The reading itself was already delivered before the acknowledgement, so nothing is lost.
      */
     private suspend fun ack(s: Session, ack: ByteArray) {
         repeat(2) { attempt ->
@@ -205,6 +209,20 @@ class MeterConnection(
                 Log.w(TAG, "Acknowledgement failed (attempt ${attempt + 1}): ${e.message}")
                 delay(150)
             }
+        }
+        throw java.io.IOException("The measure isn't accepting replies; reconnecting")
+    }
+
+    /**
+     * The measure has no unit button, so the app's choice wins: when the measure reports a
+     * different display unit (e.g. left on metres by Mi Home), switch it to match the app.
+     */
+    private suspend fun keepMeterOnAppUnits(r: DeviceMessage.Report, s: Session) {
+        val shown = r.value(Attr.SETTING_TYPE, Attr.UNIT_ID)?.toInt()?.let { MeterUnit.entries.getOrNull(it) } ?: return
+        val wanted = if (Units.isImperial(store.settings.first().unit)) MeterUnit.FEET else MeterUnit.METRES
+        if (shown != wanted) {
+            Log.i(TAG, "Measure shows $shown, app uses $wanted; switching the measure")
+            runCatching { s.set(Attr.UNIT_ID, wanted.ordinal) }
         }
     }
 
