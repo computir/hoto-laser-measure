@@ -1,0 +1,12 @@
+Laser Measure for the HOTO Smart Laser Measure (QWCJY001)
+Copyright 2026 computir
+
+This product is licensed under the Apache License, Version 2.0 (see LICENSE).
+
+The Bluetooth protocol implementation is based on the protocol documentation and
+captured test data published by the Zamer project
+(https://github.com/yelloduxx/zamer), Copyright the Zamer authors, licensed under
+the Apache License, Version 2.0.
+
+HOTO and Xiaomi are trademarks of their respective owners. This project is not
+affiliated with or endorsed by them.

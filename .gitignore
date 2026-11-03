@@ -1,0 +1,11 @@
+.gradle/
+build/
+local.properties
+.idea/
+*.iml
+.kotlin/
+# Built APKs are published as GitHub Releases, not committed.
+dist/
+*.apk
+*.keystore
+*.jks

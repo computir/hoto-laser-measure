@@ -1,0 +1,16 @@
+package com.hotomeasure.app.ui
+
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.dynamicDarkColorScheme
+import androidx.compose.material3.dynamicLightColorScheme
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.platform.LocalContext
+
+/** Material You colours from the wallpaper (Android 12+, so always available here). */
+@Composable
+fun AppTheme(content: @Composable () -> Unit) {
+    val ctx = LocalContext.current
+    val scheme = if (isSystemInDarkTheme()) dynamicDarkColorScheme(ctx) else dynamicLightColorScheme(ctx)
+    MaterialTheme(colorScheme = scheme, content = content)
+}
