@@ -161,8 +161,9 @@ class MeterConnection(
                 _state.value = LinkState.CONNECTED
                 _lastError.value = null
                 failures = 0
+                val receiver = keys.Receiver()
                 for (frame in link.session) {
-                    val plain = keys.open(frame) ?: continue
+                    val plain = receiver.open(frame) ?: continue
                     val msg = DeviceMessage.parse(plain)
                     // Show the reading first so it isn't lost if the acknowledgement has trouble.
                     if (msg is DeviceMessage.Report) onReport(msg)

@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- History and settings are backed up; the pairing token (a credential for the measure) is not. -->
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude domain="file" path="datastore/hoto_pairing.preferences_pb" />
+        <exclude domain="sharedpref" path="autostart.xml" />
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="file" path="datastore/hoto_pairing.preferences_pb" />
+        <exclude domain="sharedpref" path="autostart.xml" />
+    </device-transfer>
+</data-extraction-rules>

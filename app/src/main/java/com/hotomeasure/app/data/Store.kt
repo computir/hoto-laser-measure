@@ -14,6 +14,13 @@ import kotlinx.serialization.json.Json
 
 private val Context.dataStore by preferencesDataStore("hoto_measure")
 
+/**
+ * The pairing token lives in its own file, which is excluded from Android backups and device
+ * transfers (res/xml/data_extraction_rules.xml): it's a credential for the measure, and a
+ * restored phone can simply pair again.
+ */
+private val Context.pairingStore by preferencesDataStore("hoto_pairing")
+
 data class PairedMeter(val address: String, val name: String, val tokenHex: String)
 
 enum class DisplayUnit(val label: String) {
@@ -38,10 +45,10 @@ data class Measurement(
 class Store(private val context: Context) {
     private val json = Json { ignoreUnknownKeys = true }
 
-    val paired: Flow<PairedMeter?> = context.dataStore.data.map { p ->
+    val paired: Flow<PairedMeter?> = context.pairingStore.data.map { p ->
         val a = p[ADDRESS]; val t = p[TOKEN]
         if (a == null || t == null) null else PairedMeter(a, p[NAME] ?: "HOTO Laser Measure", t)
-    }.distinctUntilChanged() // saving history must not look like a new pairing
+    }.distinctUntilChanged()
 
     val settings: Flow<Settings> = context.dataStore.data.map { p ->
         Settings(
@@ -53,11 +60,11 @@ class Store(private val context: Context) {
 
     val history: Flow<List<Measurement>> = context.dataStore.data.map { decode(it) }.distinctUntilChanged()
 
-    suspend fun savePaired(m: PairedMeter) = context.dataStore.edit {
+    suspend fun savePaired(m: PairedMeter) = context.pairingStore.edit {
         it[ADDRESS] = m.address; it[NAME] = m.name; it[TOKEN] = m.tokenHex
     }
 
-    suspend fun forget() = context.dataStore.edit {
+    suspend fun forget() = context.pairingStore.edit {
         it.remove(ADDRESS); it.remove(NAME); it.remove(TOKEN)
     }
 

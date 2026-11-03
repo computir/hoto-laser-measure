@@ -94,6 +94,39 @@ class ProtocolTest {
     }
 
     @Test
+    fun receiverRejectsReplayedFrames() {
+        val rx = session.Receiver()
+        val f1 = "01006d0926c408cb2248da3cd2".unhex()
+        val f3 = "0300e1a01fdf6c1986fd7023fb31".unhex()
+        val f4 = "040058d3299a37dda3eaa90a8b07".unhex()
+        assertTrue(rx.open(f3) != null)
+        assertNull("same frame again", rx.open(f3))
+        assertNull("older counter", rx.open(f1))
+        assertTrue(rx.open(f4) != null)
+        // A tampered frame is rejected and doesn't advance the counter.
+        val bad = f4.copyOf().also { it[0] = 5; it[5] = (it[5].toInt() xor 1).toByte() }
+        assertNull(rx.open(bad))
+    }
+
+    @Test
+    fun loginRefusesOversizedParcel() = runBlocking {
+        val link = object : AuthLink {
+            override val upnp = Channel<ByteArray>(Channel.UNLIMITED)
+            override val avdtp = Channel<ByteArray>(Channel.UNLIMITED)
+            override suspend fun writeUpnp(data: ByteArray) {}
+            override suspend fun writeAvdtp(data: ByteArray) {
+                when (data.hex()) {
+                    "0000000b0100" -> avdtp.trySend("00000101".unhex())
+                    // After our random: accept it, then announce a 65535-frame parcel.
+                    else -> if (data.size == 18) { avdtp.trySend("00000100".unhex()); avdtp.trySend("0000000dffff".unhex()) }
+                }
+            }
+        }
+        val e = runCatching { MiAuth(link, stepTimeoutMs = 1_000).login(ByteArray(12)) }.exceptionOrNull()
+        assertTrue(e?.message ?: "no error", e?.message?.contains("parcel size") == true)
+    }
+
+    @Test
     fun parsesMultiAttributeReport() {
         val r = DeviceMessage.parse("0300068002020104000a5b".unhex()) as DeviceMessage.Report
         assertEquals(listOf(Attribute(2, 2, 1), Attribute(4, 0, 2651)), r.attributes)

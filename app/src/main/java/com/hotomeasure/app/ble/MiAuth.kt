@@ -28,6 +28,24 @@ class SessionKeys(val devKey: ByteArray, val appKey: ByteArray, val devIv: ByteA
         return Crypto.ccmDecrypt(devKey, nonce(devIv, counter), frame.copyOfRange(2, frame.size))
     }
 
+    /**
+     * Opens device-to-app frames for one connection and drops any whose counter isn't newer than
+     * the last one accepted, so a recorded frame can't be replayed into the session.
+     */
+    inner class Receiver {
+        private var last = -1
+
+        fun open(frame: ByteArray): ByteArray? {
+            if (frame.size < 7) return null
+            val counter = (frame[0].toInt() and 0xFF) or ((frame[1].toInt() and 0xFF) shl 8)
+            if (!isNewer(counter)) return null
+            return this@SessionKeys.open(frame)?.also { last = counter }
+        }
+
+        // The counter is 16 bits; allow it to wrap after 65535 frames.
+        private fun isNewer(c: Int) = last < 0 || c > last || (last > 0xFF00 && c < 0x0100)
+    }
+
     /** Seals app-to-device frames. One per connection: the device ignores counters it has seen. */
     inner class Sealer {
         private var counter = 0
@@ -113,12 +131,16 @@ class MiAuth(
             throw AuthException("Expected a data header, got ${header.hex()}")
         }
         val count = (header[4].toInt() and 0xFF) or ((header[5].toInt() and 0xFF) shl 8)
+        // The largest real parcel is a 64-byte key (4 frames); refuse anything absurd.
+        if (count !in 1..MAX_FRAMES) throw AuthException("Unexpected parcel size ($count frames)")
         link.writeAvdtp(RCV_READY)
         val out = ByteArrayOutputStream()
         var index = 0
+        var received = 0
         while (index < count) {
             val frame = receive(link.avdtp)
             if (frame.size < 2) throw AuthException("Short frame")
+            if (++received > MAX_FRAMES) throw AuthException("Too many frames")
             index = (frame[0].toInt() and 0xFF) or ((frame[1].toInt() and 0xFF) shl 8)
             out.write(frame, 2, frame.size - 2)
         }
@@ -147,6 +169,7 @@ class MiAuth(
 
     companion object {
         private const val FRAME_DATA = 18
+        private const val MAX_FRAMES = 16
         private val CMD_GET_INFO = "a2000000".unhex()
         private val CMD_SET_KEY = "15000000".unhex()
         private val CMD_AUTH = "13000000".unhex()

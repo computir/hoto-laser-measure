@@ -40,6 +40,17 @@ You need JDK 17 and the Android SDK (platform 36).
 
 The APK is written to `app/build/outputs/apk/release/`. You can also open the project in Android Studio.
 
+The release build is unsigned unless you set the Gradle property `HOTO_KEYSTORE_PROPERTIES`, for example in `~/.gradle/gradle.properties`. Point it at a file that contains `storeFile`, `storePassword`, `keyAlias` and `keyPassword`. Official releases are signed with a key that isn't in this repository. If you build your own copy, it won't install over an official release (or the other way round) until you uninstall the existing copy first.
+
+## Security
+
+- The app has no internet permission, so it can't send data anywhere. It doesn't ask for location access either.
+- The pairing token is stored separately and is left out of Android backups and device transfers.
+- Session messages are checked for authenticity (AES-CCM), and replayed messages are rejected.
+- The measure's pairing has no PIN, which is a limitation of the device itself. Pair in private, and if the app unexpectedly says *Pair again*, someone else paired with the measure.
+
+To report a security problem, please open a GitHub issue. Leave out sensitive details, and ask for a private way to share them.
+
 ## How it works
 
 The measure uses Xiaomi's BLE "standard auth" scheme:
