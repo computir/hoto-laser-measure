@@ -9,7 +9,7 @@ datastore = "1.1.7"
 serialization = "1.9.0"
 coroutines = "1.10.2"
 junit = "4.13.2"
-bouncycastle = "1.80"
+bouncycastle = "1.86"
 
 [libraries]
 androidx-core-ktx = { module = "androidx.core:core-ktx", version.ref = "coreKtx" }
