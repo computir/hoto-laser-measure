@@ -15,8 +15,8 @@ android {
         applicationId = "com.hotomeasure.app"
         minSdk = 31
         targetSdk = 36
-        versionCode = 10
-        versionName = "1.9"
+        versionCode = 11
+        versionName = "2.0"
     }
 
     // The release key lives outside the repo. Point the HOTO_KEYSTORE_PROPERTIES Gradle property

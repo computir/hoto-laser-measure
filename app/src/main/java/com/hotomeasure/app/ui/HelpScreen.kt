@@ -52,6 +52,19 @@ private val sections = listOf(
         ),
     ),
     Section(
+        "Measuring a room",
+        listOf(
+            "Choose Room. Start in a corner and measure each wall in turn, going all the way around the room in one direction. A floor plan draws itself as you go.",
+            "Every corner is assumed to be square. A normal room corner is an Inside corner. If a corner sticks out into the room (around an alcove, a chimney breast or where an L-shaped room turns), tap it to make it Outside.",
+            "You can skip the last wall: Finish room calculates it. A room with square corners always has 4 more inside corners than outside ones, and the app warns you if yours don't add up.",
+            "Tap a wall to measure it again. Undo wall removes the last one.",
+            "Optionally tap Ceiling height and measure floor to ceiling, to get the volume and the wall area (handy for paint).",
+            "Tap Finish room, name the room and save it. History shows its area, perimeter, walls and a floor plan.",
+            "Small differences from aiming the measure are spread over the walls so the corners meet. If the walls don't meet, the app shows how far apart the ends are instead of guessing.",
+            "A half-measured room is kept if you close the app.",
+        ),
+    ),
+    Section(
         "Measuring from the front or back edge",
         listOf(
             "Back edge (the default) measures from the bottom of the measure, which is handy against a wall.",

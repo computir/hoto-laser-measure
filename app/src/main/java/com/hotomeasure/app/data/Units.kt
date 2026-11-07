@@ -33,6 +33,18 @@ object Units {
         return if (isImperial(s.unit)) "${fmt(m3 * 35.3146667, s.decimals)} ft³" else "${fmt(m3, s.decimals)} m³"
     }
 
+    /** An area given in square millimetres, e.g. a room's floor. */
+    fun areaMm2(mm2: Double, s: Settings): String {
+        val m2 = mm2 / 1e6
+        return if (isImperial(s.unit)) "${fmt(m2 * 10.7639104, 1)} ft²" else "${fmt(m2, 2)} m²"
+    }
+
+    /** A volume given in cubic millimetres. */
+    fun volumeMm3(mm3: Double, s: Settings): String {
+        val m3 = mm3 / 1e9
+        return if (isImperial(s.unit)) "${fmt(m3 * 35.3146667, 1)} ft³" else "${fmt(m3, 2)} m³"
+    }
+
     fun feetInches(mm: Int, fraction: Int): String {
         val totalIn = mm / MM_PER_IN
         val units = (totalIn * fraction).roundToLong() // whole number of 1/fraction inches

@@ -42,6 +42,16 @@ data class Measurement(
     val kind: String, // "distance", "area", "volume"
     val mm: List<Int>, // the side lengths that went into it
     val label: String = "",
+    val corners: String = "", // rooms: corner after each wall, I = inside, O = outside
+    val heightMm: Int? = null, // rooms: optional ceiling height
+)
+
+/** A room being measured, kept so it survives the app closing. */
+@Serializable
+data class RoomDraft(
+    val walls: List<Int> = emptyList(),
+    val corners: String = "",
+    val heightMm: Int? = null,
 )
 
 class Store(private val context: Context) {
@@ -77,6 +87,12 @@ class Store(private val context: Context) {
         p[AUTO_UPDATE] = n.autoUpdateCheck
     }
 
+    val roomDraft: Flow<RoomDraft> = context.dataStore.data.map { p ->
+        p[ROOM_DRAFT]?.let { runCatching { json.decodeFromString<RoomDraft>(it) }.getOrNull() } ?: RoomDraft()
+    }.distinctUntilChanged()
+
+    suspend fun saveRoomDraft(d: RoomDraft) = context.dataStore.edit { it[ROOM_DRAFT] = json.encodeToString(d) }
+
     suspend fun editHistory(f: (List<Measurement>) -> List<Measurement>) = context.dataStore.edit { p ->
         p[HISTORY] = json.encodeToString(f(decode(p)).take(MAX_HISTORY))
     }
@@ -94,5 +110,6 @@ class Store(private val context: Context) {
         val FRACTION = intPreferencesKey("fraction")
         val HISTORY = stringPreferencesKey("history")
         val AUTO_UPDATE = booleanPreferencesKey("auto_update_check")
+        val ROOM_DRAFT = stringPreferencesKey("room_draft")
     }
 }

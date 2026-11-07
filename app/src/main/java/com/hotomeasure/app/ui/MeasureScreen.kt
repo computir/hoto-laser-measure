@@ -104,7 +104,9 @@ fun MeasureScreen(vm: MainViewModel, modifier: Modifier) {
             }
         }
 
-        if (ws.mode != Mode.DISTANCE) {
+        if (ws.mode == Mode.ROOM) {
+            RoomPanel(vm, s)
+        } else if (ws.mode != Mode.DISTANCE) {
             Text("Tap a side to measure it again", style = MaterialTheme.typography.labelLarge)
             ws.mode.sides.forEachIndexed { i, name ->
                 val v = ws.sides.getOrNull(i)

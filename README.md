@@ -7,6 +7,7 @@ HOTO's QWCJY001 Bluetooth laser measure was built to work with the Mi Home app, 
 - **Live readings.** Press the button on the measure and the reading shows up in the app.
 - **Units.** Choose ft-in (rounded to 1/16" or 1/32"), ft, in, m, cm or mm. The app also shows each reading in the other unit system.
 - **Area and volume.** Each reading fills in the next side. Tap a side to measure it again.
+- **Room mode.** Measure each wall going around the room, including L-shaped rooms and alcoves. Mark any corner that sticks out into the room. The app draws the floor plan, works out area and perimeter (plus volume and wall area if you add the ceiling height), can calculate the last wall for you, and saves each room to History.
 - **Front or back edge.** Set which edge the measure measures from. The measure's own screen switches between metres and feet to match the app.
 - **History.** Every distance is saved automatically. You can name, copy, delete or share measurements.
 - **Opens automatically.** Optionally, Android opens the app when you switch the measure on.

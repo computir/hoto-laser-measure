@@ -40,21 +40,37 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.hotomeasure.app.data.Corner
 import com.hotomeasure.app.data.Measurement
+import com.hotomeasure.app.data.RoomMath
+import com.hotomeasure.app.data.RoomResult
 import com.hotomeasure.app.data.Settings
 import com.hotomeasure.app.data.Units
 import kotlinx.coroutines.launch
 import java.text.DateFormat
 import java.util.Date
 
+private fun Measurement.room(): RoomResult.Closed? =
+    RoomMath.solve(mm, Corner.decode(corners, mm.size)) as? RoomResult.Closed
+
 fun Measurement.result(s: Settings): String = when (kind) {
+    "room" -> room()?.let { Units.areaMm2(it.areaMm2, s) } ?: "Room"
     "area" -> Units.area(mm[0], mm[1], s)
     "volume" -> Units.volume(mm[0], mm[1], mm[2], s)
     else -> Units.length(mm[0], s)
 }
 
 fun Measurement.detail(s: Settings): String =
-    if (mm.size > 1) mm.joinToString(" × ") { Units.length(it, s) } else Units.alternate(mm[0], s)
+    if (kind == "room") buildString {
+        val r = room()
+        append("${mm.size} walls")
+        r?.let { append(" · perimeter ").append(Units.length(it.perimeterMm.toInt(), s)) }
+        heightMm?.let { h ->
+            append(" · ceiling ").append(Units.length(h, s))
+            r?.let { append(" · ").append(Units.volumeMm3(it.areaMm2 * h, s)) }
+        }
+        append("\nWalls: ").append(mm.joinToString(", ") { Units.length(it, s) })
+    } else if (mm.size > 1) mm.joinToString(" × ") { Units.length(it, s) } else Units.alternate(mm[0], s)
 
 @Composable
 fun HistoryScreen(vm: MainViewModel, modifier: Modifier) {
@@ -70,7 +86,8 @@ fun HistoryScreen(vm: MainViewModel, modifier: Modifier) {
     fun line(m: Measurement) = buildString {
         if (m.label.isNotEmpty()) append(m.label).append(": ")
         append(m.result(s))
-        if (m.mm.size > 1) append(" (").append(m.detail(s)).append(")")
+        if (m.kind == "room") append(" (").append(m.detail(s).replace("\n", "; ")).append(")")
+        else if (m.mm.size > 1) append(" (").append(m.detail(s)).append(")")
     }
 
     if (list.isEmpty()) {
@@ -99,6 +116,9 @@ fun HistoryScreen(vm: MainViewModel, modifier: Modifier) {
                         if (m.label.isNotEmpty()) Text(m.label, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
                         Text(m.result(s), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
                         Text(m.detail(s), style = MaterialTheme.typography.bodyMedium)
+                        if (m.kind == "room") m.room()?.let { r ->
+                            FloorPlan(r.outline, closed = true, labels = emptyList(), highlight = null, height = 110.dp, showLabels = false)
+                        }
                         Text("${m.kind.replaceFirstChar { it.uppercase() }} · ${fmt.format(Date(m.time))}", style = MaterialTheme.typography.bodySmall)
                     }
                     IconButton(onClick = { scope.launch { clipboard.setClipEntry(ClipEntry(ClipData.newPlainText("measurement", line(m)))) } }) {

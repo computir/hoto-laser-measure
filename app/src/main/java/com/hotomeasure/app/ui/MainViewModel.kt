@@ -13,7 +13,11 @@ import com.hotomeasure.app.MeasureApp
 import com.hotomeasure.app.ble.Edge
 import com.hotomeasure.app.ble.FoundMeter
 import com.hotomeasure.app.ble.MeterUnit
+import com.hotomeasure.app.data.Corner
 import com.hotomeasure.app.data.Measurement
+import com.hotomeasure.app.data.RoomDraft
+import com.hotomeasure.app.data.RoomMath
+import com.hotomeasure.app.data.RoomResult
 import com.hotomeasure.app.data.Settings
 import com.hotomeasure.app.data.Units
 import kotlinx.coroutines.Job
@@ -32,6 +36,14 @@ enum class Mode(val label: String, val sides: List<String>) {
     DISTANCE("Distance", listOf("Distance")),
     AREA("Area", listOf("Length", "Width")),
     VOLUME("Volume", listOf("Length", "Width", "Height")),
+    ROOM("Room", emptyList()),
+}
+
+/** Where the next reading goes while measuring a room. */
+sealed interface RoomTarget {
+    data object NextWall : RoomTarget
+    data class Wall(val index: Int) : RoomTarget
+    data object Height : RoomTarget
 }
 
 data class Workspace(
@@ -75,6 +87,11 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     private suspend fun onReading(mm: Int) {
         val ws = _ws.value
+        if (ws.mode == Mode.ROOM) {
+            _ws.value = ws.copy(last = mm)
+            onRoomReading(mm)
+            return
+        }
         val sides = ws.sides.toMutableList().also { it[ws.target] = mm }
         val next = sides.indexOfFirst { it == null }.let { if (it < 0) (ws.target + 1) % sides.size else it }
         _ws.value = ws.copy(sides = sides, target = if (ws.mode == Mode.DISTANCE) 0 else next, last = mm)
@@ -97,6 +114,61 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     private suspend fun save(mode: Mode, mm: List<Int>) {
         val now = System.currentTimeMillis()
         store.editHistory { listOf(Measurement(now, now, mode.name.lowercase(), mm)) + it }
+    }
+
+    // --- Room mode ---
+
+    val roomDraft = store.roomDraft.stateIn(viewModelScope, SharingStarted.Eagerly, RoomDraft())
+    private val _roomTarget = MutableStateFlow<RoomTarget>(RoomTarget.NextWall)
+    val roomTarget = _roomTarget.asStateFlow()
+
+    private fun editRoom(f: (RoomDraft) -> RoomDraft) = viewModelScope.launch { store.saveRoomDraft(f(roomDraft.value)) }
+
+    private suspend fun onRoomReading(mm: Int) {
+        val d = roomDraft.value
+        val next = when (val t = _roomTarget.value) {
+            RoomTarget.NextWall -> d.copy(walls = d.walls + mm)
+            is RoomTarget.Wall -> if (t.index in d.walls.indices) d.copy(walls = d.walls.toMutableList().also { it[t.index] = mm }) else d.copy(walls = d.walls + mm)
+            RoomTarget.Height -> d.copy(heightMm = mm)
+        }
+        store.saveRoomDraft(next)
+        _roomTarget.value = RoomTarget.NextWall
+    }
+
+    fun selectRoomTarget(t: RoomTarget) {
+        _roomTarget.value = if (_roomTarget.value == t) RoomTarget.NextWall else t
+    }
+
+    /** Flips the corner at the end of wall [i] between inside and outside. */
+    fun toggleCorner(i: Int) = editRoom { d ->
+        val cs = Corner.decode(d.corners, d.walls.size).toMutableList()
+        cs[i] = cs[i].toggled()
+        d.copy(corners = Corner.encode(cs))
+    }
+
+    fun undoWall() = editRoom { d ->
+        if (d.walls.isEmpty()) d else d.copy(walls = d.walls.dropLast(1), corners = d.corners.take(d.walls.size - 1))
+    }
+
+    fun clearRoom() {
+        _roomTarget.value = RoomTarget.NextWall
+        editRoom { RoomDraft() }
+    }
+
+    fun clearRoomHeight() = editRoom { it.copy(heightMm = null) }
+
+    /** Saves a room that closes to history under [name]. */
+    fun saveRoom(name: String) = viewModelScope.launch {
+        val d = roomDraft.value
+        val r = RoomMath.solve(d.walls, Corner.decode(d.corners, d.walls.size)) as? RoomResult.Closed ?: return@launch
+        val now = System.currentTimeMillis()
+        val m = Measurement(
+            id = now, time = now, kind = "room", mm = r.walls, label = name.trim(),
+            corners = Corner.encode(r.corners), heightMm = d.heightMm,
+        )
+        store.editHistory { listOf(m) + it }
+        clearRoom()
+        _message.value = "Room saved to History"
     }
 
     fun rename(id: Long, label: String) = viewModelScope.launch {
